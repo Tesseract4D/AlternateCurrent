@@ -4,7 +4,7 @@
     {
       "modid": "${modId}",
       "name": "${modName}",
-      "description": "An example mod for Minecraft 1.7.10 with Forge focused on a stable setup.",
+      "description": "An efficient and non-locational redstone dust implementation.",
       "version": "${modVersion}",
       "mcversion": "${minecraftVersion}",
       "url": "https://github.com/tesseract4d",
@@ -12,7 +12,7 @@
       "authorList": [
         "Tesseract"
       ],
-      "credits": "",
+      "credits": "Space Walker",
       "logoFile": "",
       "screenshots": [],
       "parent": "",

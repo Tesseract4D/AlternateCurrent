@@ -6,16 +6,17 @@ import net.tclproject.mysteriumlib.asm.common.CustomLoadingPlugin;
 import net.tclproject.mysteriumlib.asm.common.FirstClassTransformer;
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = "alternate-current", acceptedMinecraftVersions = "[1.7.10]")
+@Mod(modid = "alternatecurrent", acceptedMinecraftVersions = "[1.7.10]", dependencies = "required-after:MysteriumLib")
 public class AlternateCurrentMod extends CustomLoadingPlugin {
-	public static Logger LOGGER;
+    public static Logger LOGGER;
+
     @Mod.EventHandler
-    public void preInit(FMLPreInitializationEvent event) {
-        LOGGER = event.getModLog();
+    public void preInit(FMLPreInitializationEvent e) {
+        LOGGER = e.getModLog();
     }
 
     public String[] getASMTransformerClass() {
-        return new String[] { FirstClassTransformer.class.getName() };
+        return new String[]{FirstClassTransformer.class.getName()};
     }
 
     public void registerFixes() {
