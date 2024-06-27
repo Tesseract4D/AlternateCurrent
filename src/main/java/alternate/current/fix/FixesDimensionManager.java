@@ -8,7 +8,7 @@ import net.tclproject.mysteriumlib.asm.annotations.Fix;
 import java.util.Hashtable;
 
 public class FixesDimensionManager {
-    public static Hashtable wireHandlers = new Hashtable<WorldServer, WireHandler>();
+    public static Hashtable<WorldServer, WireHandler> wireHandlers = new Hashtable<>();
 
     @Fix
     public static void setWorld(DimensionManager c, int id, WorldServer world) {

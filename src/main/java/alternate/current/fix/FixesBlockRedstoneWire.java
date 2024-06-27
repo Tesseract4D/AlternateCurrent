@@ -17,18 +17,18 @@ public class FixesBlockRedstoneWire {
     @Fix
     public static void onNeighborBlockChange(BlockRedstoneWire c, World worldIn, int x, int y, int z, Block neighbor) {
         if (!worldIn.isRemote)
-            ((WireHandler) FixesDimensionManager.wireHandlers.get(worldIn)).onWireUpdated(new BlockPos(x, y, z));
+            FixesDimensionManager.wireHandlers.get(worldIn).onWireUpdated(new BlockPos(x, y, z));
     }
 
     @Fix
     public static void onBlockAdded(BlockRedstoneWire c, World worldIn, int x, int y, int z) {
         if (!worldIn.isRemote)
-            ((WireHandler) FixesDimensionManager.wireHandlers.get(worldIn)).onWireAdded(new BlockPos(x, y, z));
+            FixesDimensionManager.wireHandlers.get(worldIn).onWireAdded(new BlockPos(x, y, z));
     }
 
     @Fix
     public static void breakBlock(BlockRedstoneWire c, World worldIn, int x, int y, int z, Block blockBroken, int meta) {
         if (!worldIn.isRemote)
-            ((WireHandler) FixesDimensionManager.wireHandlers.get(worldIn)).onWireRemoved(new BlockPos(x, y, z), new BlockState(blockBroken, meta));
+            FixesDimensionManager.wireHandlers.get(worldIn).onWireRemoved(new BlockPos(x, y, z), new BlockState(blockBroken, meta));
     }
 }

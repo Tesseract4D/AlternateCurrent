@@ -6,7 +6,7 @@ import net.tclproject.mysteriumlib.asm.common.CustomLoadingPlugin;
 import net.tclproject.mysteriumlib.asm.common.FirstClassTransformer;
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = "alternatecurrent", acceptedMinecraftVersions = "[1.7.10]", dependencies = "required-after:MysteriumLib")
+@Mod(modid = "alternatecurrent", acceptedMinecraftVersions = "[1.7.10]")
 public class AlternateCurrentMod extends CustomLoadingPlugin {
     public static Logger LOGGER;
 
