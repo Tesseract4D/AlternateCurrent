@@ -4,10 +4,10 @@ import java.util.Arrays;
 
 import alternate.current.wire.WireHandler.Directions;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
 /**
  * A Node represents a block in the world. It also holds a few other pieces of
@@ -21,11 +21,12 @@ public class Node {
 	private static final int CONDUCTOR = 0b01;
 	private static final int SOURCE    = 0b10;
 
-	final ServerWorld world;
+	final WorldServer world;
 	final Node[] neighbors;
 
 	BlockPos pos;
-	BlockState state;
+	IBlockState state;
+
 	boolean invalid;
 
 	private int flags;
@@ -39,7 +40,7 @@ public class Node {
 	/** The wire that queued this node for an update. */
 	WireNode neighborWire;
 
-	Node(ServerWorld world) {
+	Node(WorldServer world) {
 		this.world = world;
 		this.neighbors = new Node[Directions.ALL.length];
 	}
@@ -63,7 +64,7 @@ public class Node {
 		return pos.hashCode();
 	}
 
-	Node set(BlockPos pos, BlockState state, boolean clearNeighbors) {
+	Node set(BlockPos pos, IBlockState state, boolean clearNeighbors) {
 		if (state.getBlock() == Blocks.REDSTONE_WIRE) {
 			throw new IllegalStateException("Cannot update a regular Node to a WireNode!");
 		}
@@ -78,10 +79,10 @@ public class Node {
 
 		this.flags = 0;
 
-		if (this.state.method_11734()) {
+		if (this.state.isOpaqueCube()) {
 			this.flags |= CONDUCTOR;
 		}
-		if (this.state.method_11735()) {
+		if (this.state.canProvidePower()) {
 			this.flags |= SOURCE;
 		}
 
