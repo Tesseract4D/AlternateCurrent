@@ -20,7 +20,6 @@ public class AlternateCurrentMod extends CustomLoadingPlugin {
     }
 
     public void registerFixes() {
-        registerClassWithFixes("alternate.current.fix.FixesDimensionManager");
-        registerClassWithFixes("alternate.current.fix.FixesBlockRedstoneWire");
+        registerClassWithFixes("alternate.current.fix.FixesAlternateCurrent");
     }
 }
