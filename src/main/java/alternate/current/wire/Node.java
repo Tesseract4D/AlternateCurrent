@@ -1,17 +1,18 @@
 package alternate.current.wire;
 
-import alternate.current.util.BlockPos;
-import alternate.current.util.BlockState;
-import alternate.current.wire.WireHandler.Directions;
-import net.minecraft.init.Blocks;
-import net.minecraft.world.WorldServer;
-
 import java.util.Arrays;
+
+import alternate.current.wire.WireHandler.Directions;
+
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * A Node represents a block in the world. It also holds a few other pieces of
  * information that speed up the calculations in the WireHandler class.
- *
+ * 
  * @author Space Walker
  */
 public class Node {
@@ -20,7 +21,7 @@ public class Node {
 	private static final int CONDUCTOR = 0b01;
 	private static final int SOURCE    = 0b10;
 
-	final WorldServer world;
+	final ServerWorld world;
 	final Node[] neighbors;
 
 	BlockPos pos;
@@ -38,7 +39,7 @@ public class Node {
 	/** The wire that queued this node for an update. */
 	WireNode neighborWire;
 
-	Node(WorldServer world) {
+	Node(ServerWorld world) {
 		this.world = world;
 		this.neighbors = new Node[Directions.ALL.length];
 	}
@@ -63,7 +64,7 @@ public class Node {
 	}
 
 	Node set(BlockPos pos, BlockState state, boolean clearNeighbors) {
-		if (state.is(Blocks.redstone_wire)) {
+		if (state.getBlock() == Blocks.REDSTONE_WIRE) {
 			throw new IllegalStateException("Cannot update a regular Node to a WireNode!");
 		}
 
@@ -71,16 +72,16 @@ public class Node {
 			Arrays.fill(neighbors, null);
 		}
 
-		this.pos = pos;
+		this.pos = pos.toImmutable();
 		this.state = state;
 		this.invalid = false;
 
 		this.flags = 0;
 
-		if (this.state.isConductor()) {
+		if (this.state.method_11734()) {
 			this.flags |= CONDUCTOR;
 		}
-		if (this.state.isSignalSource()) {
+		if (this.state.method_11735()) {
 			this.flags |= SOURCE;
 		}
 

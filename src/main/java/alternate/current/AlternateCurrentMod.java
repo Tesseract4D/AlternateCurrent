@@ -1,26 +1,31 @@
 package alternate.current;
 
-import cpw.mods.fml.common.Mod;
-import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import net.tclproject.mysteriumlib.asm.common.CustomLoadingPlugin;
-import net.tclproject.mysteriumlib.asm.common.FirstClassTransformer;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = "alternatecurrent", acceptedMinecraftVersions = "[1.7.10]")
-public class AlternateCurrentMod extends CustomLoadingPlugin {
-    public static Logger LOGGER;
+import alternate.current.util.profiler.ACProfiler;
+import alternate.current.util.profiler.Profiler;
 
-    @Mod.EventHandler
-    public void preInit(FMLPreInitializationEvent e) {
-        LOGGER = e.getModLog();
-    }
+import net.fabricmc.api.ModInitializer;
 
-    public String[] getASMTransformerClass() {
-        return new String[]{FirstClassTransformer.class.getName()};
-    }
+public class AlternateCurrentMod implements ModInitializer {
 
-    public void registerFixes() {
-        registerClassWithFixes("alternate.current.fix.FixesDimensionManager");
-        registerClassWithFixes("alternate.current.fix.FixesBlockRedstoneWire");
-    }
+	public static final String MOD_ID = "alternate-current";
+	public static final String MOD_NAME = "Alternate Current";
+	public static final String MOD_VERSION = "1.4.0";
+	public static final Logger LOGGER = LogManager.getLogger(MOD_NAME);
+	public static final boolean DEBUG = false;
+
+	public static boolean on = true;
+
+	@Override
+	public void onInitialize() {
+		if (DEBUG) {
+			LOGGER.warn(String.format("You are running a DEBUG version of %s!", MOD_NAME));
+		}
+	}
+
+	public static Profiler createProfiler() {
+		return DEBUG ? new ACProfiler() : Profiler.DUMMY;
+	}
 }

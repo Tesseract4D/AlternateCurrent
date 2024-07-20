@@ -1,17 +1,22 @@
 package alternate.current.wire;
 
-import alternate.current.util.BlockPos;
-import alternate.current.util.BlockState;
-import alternate.current.util.Direction;
-import alternate.current.util.Redstone;
-import net.minecraft.block.Block;
-import net.minecraft.init.Blocks;
-import net.minecraft.world.WorldServer;
-
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Queue;
 import java.util.function.Consumer;
+
+//import alternate.current.AlternateCurrentMod;
+import alternate.current.util.Redstone;
+//import alternate.current.util.profiler.Profiler;
+
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+
+import net.minecraft.class_3065;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 
 /**
  * This class handles power changes for redstone wire. The algorithm was
@@ -24,43 +29,43 @@ import java.util.function.Consumer;
  * <br>
  * 3. Emit block and shape updates in a deterministic, non-locational order,
  * fixing bug MC-11193.
- *
+ * 
  * <p>
  * In Vanilla redstone wire is laggy because it fails on points 1 and 2.
- *
+ * 
  * <p>
  * Redstone wire updates recursively and each wire calculates its power level in
  * isolation rather than in the context of the network it is a part of. This
  * means a wire in a grid can change its power level over half a dozen times
  * before settling on its final value. This problem used to be worse in 1.13 and
  * below, where a wire would only decrease its power level by 1 at a time.
- *
+ * 
  * <p>
  * In addition to this, a wire emits 42 block updates and up to 22 shape updates
  * each time it changes its power level.
- *
+ * 
  * <p>
  * Of those 42 block updates, 6 are to itself, which are thus not only
  * redundant, but a big source of lag, since those cause the wire to
  * unnecessarily re-calculate its power level. A block only has 24 neighbors
  * within a Manhattan distance of 2, meaning 12 of the remaining 36 block
  * updates are duplicates and thus also redundant.
- *
+ * 
  * <p>
  * Of the 22 shape updates, only 6 are strictly necessary. The other 16 are sent
  * to blocks diagonally above and below. These are necessary if a wire changes
  * its connections, but not when it changes its power level.
- *
+ * 
  * <p>
  * Redstone wire in Vanilla also fails on point 3, though this is more of a
  * quality-of-life issue than a lag issue. The recursive nature in which it
  * updates, combined with the location-dependent order in which each wire
  * updates its neighbors, makes the order in which neighbors of a wire network
  * are updated incredibly inconsistent and seemingly random.
- *
+ * 
  * <p>
  * Alternate Current fixes each of these problems as follows.
- *
+ * 
  * <p>
  * 1. To make sure a wire calculates its power level as little as possible, we
  * remove the recursive nature in which redstone wire updates in Vanilla.
@@ -74,7 +79,7 @@ import java.util.function.Consumer;
  * - Each wire only sets its power level in the world once. This is important,
  * because calls to Level.setBlock are even more expensive than calls to
  * Level.getBlockState.
- *
+ * 
  * <p>
  * 2. There are 2 obvious ways in which we can reduce the number of block and
  * shape updates.
@@ -88,12 +93,12 @@ import java.util.function.Consumer;
  * <br>
  * For an individual wire, these two optimizations are the best you can do, but
  * for an entire grid, you can do better!
- *
+ * 
  * <p>
  * Since we calculate the power of the entire network, sending block and shape
  * updates to the wires in it is redundant. Removing those updates can reduce
  * the number of block and shape updates by up to 20%.
- *
+ * 
  * <p>
  * 3. To make the order of block updates to neighbors of a network
  * deterministic, the first thing we must do is to replace the location-
@@ -102,13 +107,13 @@ import java.util.function.Consumer;
  * by theosib's 'RedstoneWireTurbo', which you can read more about in theosib's
  * comment on Mojira <a href="https://bugs.mojang.com/browse/MC-81098?focusedCommentId=420777&page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-420777">here</a>
  * or by checking out its implementation in carpet mod <a href="https://github.com/gnembon/fabric-carpet/blob/master/src/main/java/carpet/helpers/RedstoneWireTurbo.java">here</a>.
- *
+ * 
  * <p>
  * The idea is to determine the direction of power flow through a wire based on
  * the power it receives from neighboring wires. For example, if the only power
  * a wire receives is from a neighboring wire to its west, it can be said that
  * the direction of power flow through the wire is east.
- *
+ * 
  * <p>
  * We make the order of block updates to neighbors of a wire depend on what is
  * determined to be the direction of power flow. This not only removes
@@ -116,7 +121,7 @@ import java.util.function.Consumer;
  * cases. Unlike in 'RedstoneWireTurbo', however, I have decided to keep a
  * directional element in ambiguous cases, rather than to introduce randomness,
  * though this is trivial to change.
- *
+ * 
  * <p>
  * While this change fixes the block update order of individual wires, we must
  * still address the overall block update order of a network. This turns out to
@@ -125,7 +130,7 @@ import java.util.function.Consumer;
  * from there. If we make each wire transmit its power to neighboring wires in
  * an order dependent on the direction of power flow, we end up with a
  * non-locational and largely non-directional wire update order.
- *
+ * 
  * @author Space Walker
  */
 public class WireHandler {
@@ -175,33 +180,33 @@ public class WireHandler {
 	/**
 	 * This conversion table takes in information about incoming flow, and outputs
 	 * the determined outgoing flow.
-	 *
+	 * 
 	 * <p>
 	 * The input is a 4 bit number that encodes the incoming flow. Each bit
 	 * represents a cardinal direction, and when it is 'on', there is flow in that
 	 * direction.
-	 *
+	 * 
 	 * <p>
 	 * The output is a single Direction index, or -1 for ambiguous cases.
-	 *
+	 * 
 	 * <p>
 	 * The outgoing flow is determined as follows:
-	 *
+	 * 
 	 * <p>
 	 * If there is just 1 direction of incoming flow, that direction will be the
 	 * direction of outgoing flow.
-	 *
+	 * 
 	 * <p>
 	 * If there are 2 directions of incoming flow, and these directions are not each
 	 * other's opposites, the direction that is 'more clockwise' will be the
 	 * direction of outgoing flow. More precisely, the direction that is 1 clockwise
 	 * turn from the other is picked.
-	 *
+	 * 
 	 * <p>
 	 * If there are 3 directions of incoming flow, the two opposing directions
 	 * cancel each other out, and the remaining direction will be the direction of
 	 * outgoing flow.
-	 *
+	 * 
 	 * <p>
 	 * In all other cases, the flow is completely ambiguous.
 	 */
@@ -263,10 +268,10 @@ public class WireHandler {
 	// be only one WireHandler per level, in case redstone updates in multiple
 	// levels at the same time. There are already mods that add multi-threading
 	// as well.
-	private final WorldServer world;
+	private final ServerWorld world;
 
 	/** Map of wires and neighboring blocks. */
-	private final Map<BlockPos, Node> nodes;
+	private final Long2ObjectMap<Node> nodes;
 	/** Queue for the breadth-first search through the network. */
 	private final Queue<WireNode> search;
 	/** Queue of updates to wires and neighboring blocks. */
@@ -280,10 +285,10 @@ public class WireHandler {
 	/** Is this WireHandler currently working through the update queue? */
 	private boolean updating;
 
-	public WireHandler(WorldServer world) {
+	public WireHandler(ServerWorld world) {
 		this.world = world;
 
-		this.nodes = new HashMap<>();
+		this.nodes = new Long2ObjectOpenHashMap<>();
 		this.search = new SimpleQueue();
 		this.updates = new PriorityQueue();
 
@@ -296,7 +301,7 @@ public class WireHandler {
 	 * block at the given position in the level.
 	 */
 	private Node getOrAddNode(BlockPos pos) {
-		return nodes.compute(pos, (key, node) -> {
+		return nodes.compute(pos.asLong(), (key, node) -> {
 			if (node == null) {
 				// If there is not yet a node at this position, retrieve and
 				// update one from the cache.
@@ -315,7 +320,7 @@ public class WireHandler {
 	 * position.
 	 */
 	private Node removeNode(BlockPos pos) {
-		return nodes.remove(pos);
+		return nodes.remove(pos.asLong());
 	}
 
 	/**
@@ -323,7 +328,7 @@ public class WireHandler {
 	 * at the given position.
 	 */
 	private Node getNextNode(BlockPos pos) {
-		return getNextNode(pos, WorldHelper.getBlockState(world, pos));
+		return getNextNode(pos, world.getBlockState(pos));
 	}
 
 	/**
@@ -333,7 +338,7 @@ public class WireHandler {
 	 * cache and update it.
 	 */
 	private Node getNextNode(BlockPos pos, BlockState state) {
-		return state.is(Blocks.redstone_wire) ? new WireNode(world, pos, state) : getNextNode().set(pos, state, true);
+		return state.getBlock() == Blocks.REDSTONE_WIRE ? new WireNode(world, pos, state) : getNextNode().set(pos, state, true);
 	}
 
 	/**
@@ -373,10 +378,10 @@ public class WireHandler {
 	 */
 	private Node revalidateNode(Node node) {
 		BlockPos pos = node.pos;
-		BlockState state = WorldHelper.getBlockState(world, pos);
+		BlockState state = world.getBlockState(pos);
 
 		boolean wasWire = node.isWire();
-		boolean isWire = state.is(Blocks.redstone_wire);
+		boolean isWire = state.getBlock() == Blocks.REDSTONE_WIRE;
 
 		if (wasWire != isWire) {
 			return getNextNode(pos, state);
@@ -575,13 +580,13 @@ public class WireHandler {
 	 * and require power changes. These wires are called 'roots' because it is only
 	 * when these wires change power level that neighboring wires must adjust as
 	 * well.
-	 *
+	 * 
 	 * <p>
 	 * While it is strictly only necessary to check the wire at the given position,
 	 * if that wire is part of a network, it is beneficial to check its surroundings
 	 * for other wires that require power changes. This is because a network can
 	 * receive power at multiple points. Consider the following setup:
-	 *
+	 * 
 	 * <p>
 	 * (top-down view, W = wire, L = lever, _ = air/other)
 	 * <br> {@code _ _ W _ _ }
@@ -589,7 +594,7 @@ public class WireHandler {
 	 * <br> {@code W W L W W }
 	 * <br> {@code _ W W W _ }
 	 * <br> {@code _ _ W _ _ }
-	 *
+	 * 
 	 * <p>
 	 * The lever powers four wires in the network at once. If this is identified
 	 * correctly, the entire network can (un)power at once. While it is not
@@ -672,7 +677,7 @@ public class WireHandler {
 		wire.discovered = true;
 		wire.searched = false;
 
-		if (!wire.removed && !wire.shouldBreak && !wire.state.canSurviveAt(world, wire.pos)) {
+		if (!wire.removed && !wire.shouldBreak && !wire.state.getBlock().canBePlacedAtPos(world, wire.pos)) {
 			wire.shouldBreak = true;
 		}
 
@@ -769,7 +774,7 @@ public class WireHandler {
 				power = Math.max(power, getDirectSignalTo(wire, neighbor, Directions.iOpposite(iDir)));
 			}
 			if (neighbor.isSignalSource()) {
-				power = Math.max(power, neighbor.state.getSignal(world, neighbor.pos, Directions.ALL[iDir]));
+				power = Math.max(power, neighbor.state.method_11713(world, neighbor.pos, Directions.ALL[iDir]));
 			}
 
 			if (power >= POWER_MAX) {
@@ -791,7 +796,7 @@ public class WireHandler {
 			Node neighbor = getNeighbor(node, iDir);
 
 			if (neighbor.isSignalSource()) {
-				power = Math.max(power, neighbor.state.getDirectSignal(world, neighbor.pos, Directions.ALL[iDir]));
+				power = Math.max(power, neighbor.state.getStrongRedstonePower(world, neighbor.pos, Directions.ALL[iDir]));
 
 				if (power >= POWER_MAX) {
 					return POWER_MAX;
@@ -854,19 +859,19 @@ public class WireHandler {
 
 	/**
 	 * Update the network and neighboring blocks. This is done in 3 steps.
-	 *
+	 * 
 	 * <p>
 	 * <b>1. Search through the network</b>
 	 * <br>
 	 * Conduct a breadth-first search around the roots to find wires that are in an
 	 * invalid state and need power changes.
-	 *
+	 * 
 	 * <p>
 	 * <b>2. Depower the network</b>
 	 * <br>
 	 * Depower all wires in the network. This allows power to be spread most
 	 * efficiently.
-	 *
+	 * 
 	 * <p>
 	 * <b>3. Power the network</b>
 	 * <br>
@@ -996,6 +1001,12 @@ public class WireHandler {
 
 				if (wire.setPower()) {
 					queueNeighbors(wire);
+
+					// If the wire was newly placed or removed, observer updates have
+					// already been emitted.
+					if (!wire.added && !wire.shouldBreak) {
+						updateNeighborObservers(wire);
+					}
 				}
 			} else {
 				WireNode neighborWire = node.neighborWire;
@@ -1051,6 +1062,35 @@ public class WireHandler {
 	}
 
 	/**
+	 * Emit observer updates around the given wire.
+	 */
+	private void updateNeighborObservers(WireNode wire) {
+		BlockPos wirePos = wire.pos;
+		Block wireBlock = wire.state.getBlock();
+
+		for (int iDir : DEFAULT_FULL_UPDATE_ORDER) {
+			Node neighbor = getNeighbor(wire, iDir);
+
+			if (!neighbor.isWire()) {
+				int iOpp = Directions.iOpposite(iDir);
+				Direction opp = Directions.ALL[iOpp];
+
+				updateObserver(neighbor, opp, wirePos, wireBlock);
+			}
+		}
+	}
+
+	private void updateObserver(Node node, Direction dir, BlockPos neighborPos, Block neighborBlock) {
+		BlockPos pos = node.pos;
+		BlockState state = world.getBlockState(pos);
+		Block block = state.getBlock();
+
+		if (block == Blocks.OBSERVER) {
+			((class_3065)block).method_13711(state, world, pos, neighborBlock, neighborPos);
+		}
+	}
+
+	/**
 	 * Queue block updates to nodes around the given wire.
 	 */
 	private void queueNeighbors(WireNode wire) {
@@ -1089,7 +1129,8 @@ public class WireHandler {
 	 */
 	private void updateBlock(Node node, BlockPos neighborPos, Block neighborBlock) {
 		BlockPos pos = node.pos;
-		BlockState state = WorldHelper.getBlockState(world, pos);
+		BlockState state = world.getBlockState(pos);
+		Block block = state.getBlock();
 
 		// While this check makes sure wires in the network are not given block
 		// updates, it also prevents block updates to wires in neighboring networks.
@@ -1100,8 +1141,8 @@ public class WireHandler {
 		// performance gains in certain setups, if you are not, you can add all the
 		// positions of the network to a set and filter out block updates to wires in
 		// the network that way.
-		if (!state.isAir() && !state.is(Blocks.redstone_wire)) {
-			state.neighborChanged(world, pos, neighborBlock);
+		if (block != Blocks.AIR && block != Blocks.REDSTONE_WIRE) {
+			state.method_11707(world, pos, neighborBlock, neighborPos);
 		}
 	}
 
