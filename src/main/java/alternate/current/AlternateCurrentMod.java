@@ -1,25 +1,24 @@
 package alternate.current;
 
+import cn.tesseract.mycelium.asm.MiscHelper;
+import cn.tesseract.mycelium.asm.minecraft.HookLoader;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import net.tclproject.mysteriumlib.asm.common.CustomLoadingPlugin;
-import net.tclproject.mysteriumlib.asm.common.FirstClassTransformer;
+import net.minecraft.block.BlockRedstoneWire;
 import org.apache.logging.log4j.Logger;
 
 @Mod(modid = "alternatecurrent", acceptedMinecraftVersions = "[1.7.10]")
-public class AlternateCurrentMod extends CustomLoadingPlugin {
+public class AlternateCurrentMod extends HookLoader {
     public static Logger LOGGER;
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent e) {
         LOGGER = e.getModLog();
+        MiscHelper.printMethodDescriptors(BlockRedstoneWire.class);
     }
 
-    public String[] getASMTransformerClass() {
-        return new String[]{FirstClassTransformer.class.getName()};
-    }
-
-    public void registerFixes() {
-        registerClassWithFixes("alternate.current.fix.FixesAlternateCurrent");
+    @Override
+    protected void registerHooks() {
+        registerHookContainer("alternate.current.hook.AlternateCurrentHook");
     }
 }
