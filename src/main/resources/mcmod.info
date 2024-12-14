@@ -10,9 +10,10 @@
       "url": "https://github.com/tesseract4d",
       "updateUrl": "",
       "authorList": [
-        "Tesseract"
+        "Tesseract",
+        "Space Walker"
       ],
-      "credits": "Space Walker",
+      "credits": "",
       "logoFile": "",
       "screenshots": [],
       "parent": "",
